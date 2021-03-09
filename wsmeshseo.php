@@ -8,10 +8,10 @@ class wsmeshseo extends Module
 {
     public function __construct()
     {
-        $this->name = 'ns_monmodule';
+        $this->name = 'wsmeshseo';
         $this->tab = 'front_office_features';
         $this->version = '1.0.0';
-        $this->author = 'New Slang';
+        $this->author = 'Wess-Soft';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = [
             'min' => '1.7',
@@ -21,13 +21,41 @@ class wsmeshseo extends Module
 
         parent::__construct();
 
-        $this->displayName = $this->l('Module New Slang');
-        $this->description = $this->l('Mon premier module super cool');
+        $this->displayName = $this->l('Module Mesh SEO');
+        $this->description = $this->l('Systeme de maillage de catégorie sur prestashop');
 
         $this->confirmUninstall = $this->l('Êtes-vous sûr de vouloir désinstaller ce module ?');
 
-        if (!Configuration::get('NS_MONMODULE_PAGENAME')) {
+        if (!Configuration::get('WSMESHSEO_PAGENAME')) {
             $this->warning = $this->l('Aucun nom fourni');
         }
+    }
+
+    public function install()
+    {
+        if (Shop::isFeatureActive())
+        {
+            Shop::setContext(Shop::CONTEXT_ALL);
+        }
+
+        if (!parent::install() ||
+            !$this->registerHook('leftColumn') ||
+            !$this->registerHook('header') ||
+            !Configuration::updateValue('WSMESHSEO_PAGENAME', 'Mentions légales')
+        ) {
+            return false;
+        }
+        return true;
+    }
+
+    public function uninstall()
+    {
+        if (!parent::uninstall() ||
+            !Configuration::deleteByName('WSMESHSEO_PAGENAME')
+        ) {
+            return false;
+        }
+
+        return true;
     }
 }

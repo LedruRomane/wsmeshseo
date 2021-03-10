@@ -131,9 +131,7 @@ class wsmeshseo extends Module
     public function getContent()
     {
         $output = null;
-        var_dump('toto');
-        if (Tools::isSubmit('btnSubmit')) {
-            var_dump('tata');
+        if (Tools::isSubmit('submitConfig')) {
             $values = array();
 
             $values['WSMESHSEO_PAGENAME'] = array('value' => strval(Tools::getValue('WSMESHSEO_PAGENAME')),
@@ -188,21 +186,10 @@ class wsmeshseo extends Module
         $helper->module = $this;
         $helper->name_controller = $this->name;
         $helper->token = Tools::getAdminTokenLite('AdminModules');
-        $helper->currentIndex = AdminController::$currentIndex.'&amp;configure='.$this->name;
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name . '&tab_module=' . $this->tab
+            . '&module_name=' . $this->name;
 
-        $helper->toolbar_btn = array(
-            'save' =>
-                array(
-                    'desc' => $this->l('Save'),
-                    'href' => AdminController::$currentIndex.'&configure='.$this->name.'&save'.$this->name.
-                        '&token='.Tools::getAdminTokenLite('AdminModules'),
-                ),
-            'back' => array(
-                'href' => AdminController::$currentIndex.'&token='.Tools::getAdminTokenLite('AdminModules'),
-                'desc' => $this->l('Back to list')
-            )
-        );
-
+        $helper->submit_action = 'submitConfig';
 
         // Charge la valeur de WSMESHSEO_PAGENAME depuis la base
         $helper->fields_value['WSMESHSEO_PAGENAME'] = Config::get('WSMESHSEO_PAGENAME');

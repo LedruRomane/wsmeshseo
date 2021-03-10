@@ -1,15 +1,20 @@
 <?php
 
+require_once _PS_MODULE_DIR_.'wsmeshseo/classes/Config.php';
+
 if (!defined('_PS_VERSION_')) {
     exit;
 }
 
 class wsmeshseo extends Module
 {
+    /***
+     * wsmeshseo constructor.
+     */
     public function __construct()
     {
         $this->name = 'wsmeshseo';
-        $this->tab = 'front_office_features';
+        $this->tab = 'administration';
         $this->version = '1.0.0';
         $this->author = 'Wess-Soft';
         $this->need_instance = 0;
@@ -25,12 +30,19 @@ class wsmeshseo extends Module
         $this->description = $this->l('Systeme de maillage de catégorie sur prestashop');
 
         $this->confirmUninstall = $this->l('Êtes-vous sûr de vouloir désinstaller ce module ?');
-
-        if (!Configuration::get('WSMESHSEO_PAGENAME')) {
-            $this->warning = $this->l('Aucun nom fourni');
-        }
     }
 
+    public function init()
+    {
+
+        parent::init();
+
+    }
+
+    /***
+     * install module
+     * @return bool
+     */
     public function install()
     {
         if (Shop::isFeatureActive())
@@ -38,37 +50,74 @@ class wsmeshseo extends Module
             Shop::setContext(Shop::CONTEXT_ALL);
         }
 
-        if (!parent::install() ||
-            !$this->registerHook('leftColumn') ||
-            !$this->registerHook('header') ||
-            !Configuration::updateValue('WSMESHSEO_PAGENAME', 'Mentions légales')
-        ) {
-            return false;
-        }
-        return true;
+
+        return parent::install()
+            && $this->registerHook('header')
+            &&  $this->registerHook('leftColumn')
+            && $this->installDB() ;
     }
 
+    /***
+     * uninstall module
+     * @return bool
+     */
     public function uninstall()
     {
-        if (!parent::uninstall() ||
-            !Configuration::deleteByName('WSMESHSEO_PAGENAME')
-        ) {
-            return false;
-        }
-
-        return true;
+        return parent::uninstall() && $this->uninstallDB();
     }
 
+    /***
+     * install DataBase
+     * @return bool
+     */
+    public function installDB()
+    {
+        $return = true;
+
+        $return &= Db::getInstance()->execute('
+                CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'ws_seo_configuration` (
+                `id_category` INT UNSIGNED NOT NULL,
+                `configuration` varchar(11) DEFAULT NULL,
+                PRIMARY KEY (`id_category`)
+            ) ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=utf8 ;'
+        );
+
+        return $return;
+    }
+
+    /***
+     * Uninstall DataBase
+     * @param bool $drop_table
+     * @return bool
+     */
+    public function uninstallDB($drop_table = true)
+    {
+        $ret = true;
+        if ($drop_table) {
+            $ret &= Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'ws_seo_configuration`');
+        }
+
+        return $ret;
+    }
+
+    /***
+     * hook left column on product pages
+     * @param $params
+     * @return mixed
+     */
     public function hookDisplayLeftColumn($params)
     {
         $this->context->smarty->assign([
-            'ns_page_name' => Configuration::get('WSMESHSEO_PAGENAME'),
-            'ns_page_link' => $this->context->link->getModuleLink('wsmeshseo', 'display')
+            'test' => Config::get('WSMESHSEO_PAGENAME')
         ]);
 
         return $this->display(__FILE__, 'wsmeshseo.tpl');
     }
 
+    /***
+     * hook header on page wsmeshseo from the controller
+     * @return mixed
+     */
     public function hookDisplayHeader()
     {
         $this->context->controller->registerStylesheet(
@@ -78,31 +127,38 @@ class wsmeshseo extends Module
         );
     }
 
+
     public function getContent()
     {
         $output = null;
 
-        if (Tools::isSubmit('btnSubmit')) {
-            $pageName = strval(Tools::getValue('WSMESHSEO_PAGENAME'));
+        if (Tools::isSubmit('submit'.$this->name)) {
 
-            if (
-                !$pageName||
-                empty($pageName)
-            ) {
-                $output .= $this->displayError($this->l('Invalid Configuration value'));
-            } else {
-                Configuration::updateValue('WSMESHSEO_PAGENAME', $pageName);
-                $output .= $this->displayConfirmation($this->l('Settings updated'));
+            $values = array();
+
+            $values['WSMESHSEO_PAGENAME'] = array('value' => strval(Tools::getValue('WSMESHSEO_PAGENAME')),
+                'label' => $this->l("Test d'enregistrement d'une valeur en config"));
+
+            foreach ($values as $key => $value) {
+                if (!$value['value']
+                    || empty($value['value'])
+                    || !Validate::isGenericName($value['value']))
+                    $output .= $this->displayError($this->l('Valeur config invalide') . ' ' . $value['label']);
+                else {
+                    Config::updateValue($key, $value['value']);
+                }
+            }
+
+            if($output == null)
+            {
+                $output .= $this->displayConfirmation($this->l('Configurations mises à jour.'));
             }
         }
-
         return $output.$this->displayForm();
     }
 
     public function displayForm()
     {
-        // Récupère la langue par défaut
-        $defaultLang = (int)Configuration::get('PS_LANG_DEFAULT');
 
         // Initialise les champs du formulaire dans un tableau
         $form = array(
@@ -113,14 +169,14 @@ class wsmeshseo extends Module
                 'input' => array(
                     array(
                         'type' => 'text',
-                        'label' => $this->l('Configuration value'),
+                        'label' => $this->l('Test d\'enregistrement d\'une valeur en config'),
                         'name' => 'WSMESHSEO_PAGENAME',
                         'size' => 20,
                         'required' => true
                     )
                 ),
                 'submit' => array(
-                    'title' => $this->l('Save'),
+                    'title' => $this->l('Enregistrer'),
                     'name'  => 'btnSubmit'
                 )
             ),
@@ -134,12 +190,12 @@ class wsmeshseo extends Module
         $helper->token = Tools::getAdminTokenLite('AdminModules');
         $helper->currentIndex = AdminController::$currentIndex.'&amp;configure='.$this->name;
 
-        // Langue
-        $helper->default_form_language = $defaultLang;
 
         // Charge la valeur de WSMESHSEO_PAGENAME depuis la base
-        $helper->fields_value['WSMESHSEO_PAGENAME'] = Configuration::get('WSMESHSEO_PAGENAME');
+        $helper->fields_value['WSMESHSEO_PAGENAME'] = Config::get('WSMESHSEO_PAGENAME');
 
         return $helper->generateForm(array($form));
     }
+
+
 }

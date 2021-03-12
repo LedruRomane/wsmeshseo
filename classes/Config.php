@@ -90,4 +90,14 @@ class Config extends ObjectModel
 
         return $results;
     }
+
+    public static function updateHook($name, $title, $description){
+        $sql = 'REPLACE into `'._DB_PREFIX_.'hook`';
+        $sql .= ' (name, title, description) VALUES (\''.$name.'\', \''.$title.'\', \''.$description.'\')';
+
+        $results = Db::getInstance()->Execute($sql);
+
+        return $results;
+    }
+
 }

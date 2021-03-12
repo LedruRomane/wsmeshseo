@@ -1,6 +1,7 @@
 <?php
 
 require_once _PS_MODULE_DIR_.'wsmeshseo/classes/Config.php';
+require_once _PS_MODULE_DIR_.'wsmeshseo/services/CdcTools.php';
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -52,8 +53,7 @@ class wsmeshseo extends Module
 
 
         return parent::install()
-            && $this->registerHook('header')
-            &&  $this->registerHook('leftColumn')
+            && $this->registerHook('DisplayHeaderCategory')
             && $this->installDB() ;
     }
 
@@ -76,7 +76,7 @@ class wsmeshseo extends Module
 
         $return &= Db::getInstance()->execute('
                 CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'ws_seo_configuration` (
-                `id_category` INT UNSIGNED NOT NULL,
+                `id_category` varchar(11) NOT NULL,
                 `configuration` varchar(11) DEFAULT NULL,
                 PRIMARY KEY (`id_category`)
             ) ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=utf8 ;'
@@ -105,26 +105,13 @@ class wsmeshseo extends Module
      * @param $params
      * @return mixed
      */
-    public function hookDisplayLeftColumn($params)
+    public function hookDisplayHeaderCategory($params)
     {
         $this->context->smarty->assign([
-            'test' => Config::get('WSMESHSEO_PAGENAME')
+            'test' => Config::get('config')
         ]);
 
         return $this->display(__FILE__, 'wsmeshseo.tpl');
-    }
-
-    /***
-     * hook header on page wsmeshseo from the controller
-     * @return mixed
-     */
-    public function hookDisplayHeader()
-    {
-        $this->context->controller->registerStylesheet(
-            'wsmeshseo',
-            $this->_path.'views/css/wsmeshseo.css',
-            ['server' => 'remote', 'position' => 'head', 'priority' => 150]
-        );
     }
 
 
@@ -134,7 +121,7 @@ class wsmeshseo extends Module
         if (Tools::isSubmit('submitConfig')) {
             $values = array();
 
-            $values['WSMESHSEO_PAGENAME'] = array('value' => strval(Tools::getValue('WSMESHSEO_PAGENAME')),
+            $values['config'] = array('value' => strval(Tools::getValue('config')),
                 'label' => $this->l("Test d'enregistrement d'une valeur en config"));
 
             foreach ($values as $key => $value) {
@@ -152,6 +139,24 @@ class wsmeshseo extends Module
                 $output .= $this->displayConfirmation($this->l('Configurations mises à jour.'));
             }
         }
+
+        if(Config::get('HOOK') == null) {
+            $hook =$this->installCustomHooks();
+            if ($hook) {
+                $output .= $this->displayConfirmation($this->l('Hooks are correctly installed!'));
+                $hookDb = Config::updateHook('displayHeaderCategory', 'Top of page category', 'This hook is placed at the top of product list on page category');
+                $hookCat = Config::updateValue('HOOK', 'hookInstalled');
+                if(!$hookDb || !$hookCat){
+                    $output .= $this->displayError($this->l('Hooks are not correctly installed :-('));
+                }
+            } else {
+                $output .= $this->displayError($this->l('Hooks are not correctly installed :-('));
+                $this->smarty->assign(array(
+                    'troubleshooting' => true
+                ));
+            }
+        }
+
         return $output.$this->displayForm();
     }
 
@@ -159,26 +164,25 @@ class wsmeshseo extends Module
     {
 
         // Initialise les champs du formulaire dans un tableau
-        $form = array(
-            'form' => array(
-                'legend' => array(
-                    'title' => $this->l('Settings'),
-                ),
-                'input' => array(
-                    array(
-                        'type' => 'text',
-                        'label' => $this->l('Test d\'enregistrement d\'une valeur en config'),
-                        'name' => 'WSMESHSEO_PAGENAME',
-                        'size' => 20,
-                        'required' => true
-                    )
-                ),
-                'submit' => array(
-                    'title' => $this->l('save'),
-                    'name'  => 'btnSubmit'
-                )
+        $fields_form[0]['form'] = array(
+            'legend' => array(
+                'title' => $this->l('Settings'),
             ),
+            'input' => array(
+                array(
+                    'type' => 'text',
+                    'label' => $this->l('Test d\'enregistrement d\'une valeur en config'),
+                    'name' => 'config',
+                    'size' => 20,
+                    'required' => true
+                ),
+            ),
+            'submit' => array(
+                'title' => $this->l('save'),
+                'name'  => 'btnSubmit'
+            )
         );
+
 
         $helper = new HelperForm();
 
@@ -191,10 +195,35 @@ class wsmeshseo extends Module
 
         $helper->submit_action = 'submitConfig';
 
-        // Charge la valeur de WSMESHSEO_PAGENAME depuis la base
-        $helper->fields_value['WSMESHSEO_PAGENAME'] = Config::get('WSMESHSEO_PAGENAME');
 
-        return $helper->generateForm(array($form));
+        $helper->fields_value['config'] = Config::get('config');
+
+        return $helper->generateForm($fields_form);
+    }
+
+    public function installCustomHooks() {
+        $success = true;
+        if(version_compare(_PS_VERSION_, '1.7', '>=')) {
+            $filename = _PS_THEME_DIR_.'templates/catalog/listing/product-list.tpl';
+            if(!CdcTools::stringInFile('{hook h="displayHeaderCategory"}', $filename)) {
+                $file_content = Tools::file_get_contents($filename);
+                $strg = "(<section id=\"main\">)";
+                if(!empty($file_content)) {
+                    $matches = preg_split($strg, $file_content, -1, PREG_SPLIT_NO_EMPTY | PREG_SPLIT_DELIM_CAPTURE);
+                    if(count($matches) == 2) {
+                        $new_content = $matches[0] ."<section id=\"main\"> \n {hook h=\"displayHeaderCategory\"}" .$matches[1];
+                        if(!file_put_contents($filename, $new_content)) {
+                            $success = false;
+                        }
+                    } else {
+                        $success = false;
+                    }
+                } else {
+                    $success = false;
+                }
+            }
+        }
+        return $success;
     }
 
 

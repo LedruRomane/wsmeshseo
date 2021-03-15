@@ -76,8 +76,8 @@ class wsmeshseo extends Module
 
         $return &= Db::getInstance()->execute('
                 CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'ws_seo_configuration` (
-                `id_category` varchar(11) NOT NULL,
-                `configuration` varchar(11) DEFAULT NULL,
+                `id_category` varchar(25) NOT NULL,
+                `configuration` varchar(25) DEFAULT NULL,
                 PRIMARY KEY (`id_category`)
             ) ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=utf8 ;'
         );
@@ -107,32 +107,101 @@ class wsmeshseo extends Module
      */
     public function hookDisplayHeaderCategory($params)
     {
+        $category=   new Category(Tools::getValue('id_category'));
+        $category_children = $category->getChildren(Tools::getValue('id_category'),$this->context->language->id);
+        $category_parent = $category->getParentsCategories();
+
+        //Supprimer la catégorie "Accueil" des catégories parentes et la catégorie courante.
+        foreach($category_parent as $key => $value){
+            if($value['id_category'] == 2 || $value['id_category'] == $category->id){
+                unset($category_parent[$key]);
+            }
+        }
+
+
         $this->context->smarty->assign([
-            'test' => Config::get('config')
+            'childrens' => $category_children,
+            'parents' => $category_parent
         ]);
 
         return $this->display(__FILE__, 'wsmeshseo.tpl');
+    }
+
+    protected function getConfigFormValues()
+    {
+
+        $config_fields = array (
+
+            'checkbox' => Config::get('checkbox')
+
+        );
+
+        $opts = $this->getOptions();
+
+        $id_checkbox_options = array();
+
+        foreach ($opts as $options)
+        {
+            $id_checkbox_options[] = $options['id_checkbox_options'];
+        }
+
+        $id_checkbox_options_post = array();
+
+        foreach ($id_checkbox_options as $opt_id)
+        {
+            if (Tools::getValue('options_'.(int)$opt_id))
+            {
+                $id_checkbox_options_post['options_'.(int)$opt_id] = true;
+            }
+        }
+
+        $id_checkbox_options_config = array();
+
+        if ($confs = Config::get('options'))
+        {
+            $confs = explode(',', Config::get('options'));
+        }
+        else{
+            $confs = array();
+        }
+
+        foreach ($confs as $conf)
+        {
+            $id_checkbox_options_config['options_'.(int)$conf] = true;
+        }
+
+        if (Tools::isSubmit('btnSubmit'))
+        {
+            $config_fields = array_merge($config_fields, array_intersect($id_checkbox_options_post, $id_checkbox_options_config));
+        }
+        else{
+            $config_fields = array_merge($config_fields, $id_checkbox_options_config);
+        }
+
+
+        return $config_fields;
+
     }
 
 
     public function getContent()
     {
         $output = null;
+
         if (Tools::isSubmit('submitConfig')) {
-            $values = array();
 
-            $values['config'] = array('value' => strval(Tools::getValue('config')),
-                'label' => $this->l("Test d'enregistrement d'une valeur en config"));
 
-            foreach ($values as $key => $value) {
-                if (!$value['value']
-                    || empty($value['value'])
-                    || !Validate::isGenericName($value['value']))
-                    $output .= $this->displayError($this->l('Valeur config invalide') . ' ' . $value['label']);
-                else {
-                    Config::updateValue($key, $value['value']);
+            $all_opts = $this->getOptions();
+            $checkbox_options = array();
+            foreach ($all_opts as $chbx_options)
+            {
+                if (Tools::getValue('options_'.(int)$chbx_options['id_checkbox_options']))
+                {
+                    $checkbox_options[] = $chbx_options['id_checkbox_options'];
                 }
             }
+
+            Config::updateValue('options', implode(',', $checkbox_options));
 
             if($output == null)
             {
@@ -156,8 +225,7 @@ class wsmeshseo extends Module
                 ));
             }
         }
-
-        return $output.$this->displayForm();
+        return $output.$this->displayForm($this->getConfigFormValues());
     }
 
     public function displayForm()
@@ -170,17 +238,21 @@ class wsmeshseo extends Module
             ),
             'input' => array(
                 array(
-                    'type' => 'text',
-                    'label' => $this->l('Test d\'enregistrement d\'une valeur en config'),
-                    'name' => 'config',
-                    'size' => 20,
-                    'required' => true
+                    'type' => 'checkbox',
+                    'label' => $this->l('Selectionnez l\'arborescence de la catégorie courante voulue : '),
+                    'desc' => $this->l('Faites vos choix.'),
+                    'name' => 'options',
+                    'values' => array(
+                        'query' => $this->getOptions(),
+                        'id' => 'id_checkbox_options',
+                        'name' => 'checkbox_options_name',
+                    ),
                 ),
             ),
             'submit' => array(
                 'title' => $this->l('save'),
                 'name'  => 'btnSubmit'
-            )
+            ),
         );
 
 
@@ -195,9 +267,11 @@ class wsmeshseo extends Module
 
         $helper->submit_action = 'submitConfig';
 
-
-        $helper->fields_value['config'] = Config::get('config');
-
+        $existedValues = $this->getConfigFormValues();
+        foreach($existedValues as $key => $value)
+        {
+            $helper->fields_value[$key] = true;
+        }
         return $helper->generateForm($fields_form);
     }
 
@@ -226,5 +300,41 @@ class wsmeshseo extends Module
         return $success;
     }
 
-
+    public function  getOptions(){
+        $options =array(
+            array(
+                'id_checkbox_options' => '1',
+                'checkbox_options_name' => 'Parents',
+            ),
+            array(
+                'id_checkbox_options' => '2',
+                'checkbox_options_name' => 'Grand-parents',
+            ),
+            array(
+                'id_checkbox_options' => '3',
+                'checkbox_options_name' => 'Enfants',
+            ),
+            array(
+                'id_checkbox_options' => '4',
+                'checkbox_options_name' => 'Petits-enfants',
+            ),
+            array(
+                'id_checkbox_options' => '5',
+                'checkbox_options_name' => 'Oncles',
+            ),
+            array(
+                'id_checkbox_options' => '6',
+                'checkbox_options_name' => 'Cousins',
+            ),
+            array(
+                'id_checkbox_options' => '7',
+                'checkbox_options_name' => 'Neveux',
+            ),
+            array(
+                'id_checkbox_options' => '8',
+                'checkbox_options_name' => 'Tous',
+            )
+        );
+        return $options;
+    }
 }

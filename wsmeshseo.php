@@ -107,23 +107,75 @@ class wsmeshseo extends Module
      */
     public function hookDisplayHeaderCategory($params)
     {
-        $category=   new Category(Tools::getValue('id_category'));
-        $category_children = $category->getChildren(Tools::getValue('id_category'),$this->context->language->id);
-        $category_parent = $category->getParentsCategories();
+        $data = array();
+        $category_grandparent = array();
+        $category_grandchildren = array();
 
+        $category=  new Category(Tools::getValue('id_category'));
+
+        $category_children = $category->getChildren(Tools::getValue('id_category'),$this->context->language->id);
+
+        $category_parent = $category->getParentsCategories();
         //Supprimer la catégorie "Accueil" des catégories parentes et la catégorie courante.
+        //Trier la catégorie parente directe et les catégories grands-parentes
         foreach($category_parent as $key => $value){
-            if($value['id_category'] == 2 || $value['id_category'] == $category->id){
+            if($value['id_category'] == 2 || $value['id_category'] == $category->id ){
+                unset($category_parent[$key]);
+            }
+            elseif($value['id_category'] == $category->id_parent){
+                $category_grandparent[] = $category_parent[$key];
                 unset($category_parent[$key]);
             }
         }
 
+        //Récupération des petits-enfants
+        if ($subCategories = $category->getSubCategories($this->context->language->id))
+        {
+            foreach ($subCategories as $key => $subcat) {
+                $subcatObj = new Category($subcat['id_category']);
+                $category_grandchildren =array_merge($category_grandchildren , $subcatObj->getSubCategories($this->context->language->id));
+            }
+        };
 
+        $oncle =array();
+        $cousin=array();
+        $neveux=array();
+
+
+        //Récupération des configurations cochées
+        $configChecked = explode(',', Config::get('options'));
+
+        //Récupérations des catégories en fonction des configs cochées
+        foreach($configChecked as $value)
+        {
+            switch ($value)
+            {
+                case '1':
+                    $data = array_merge($data,$category_grandparent);
+                    break;
+                case '2':
+                    $data = array_merge($data,$category_parent);
+                    break;
+                case '3':
+                    $data = array_merge($data,$category_children);
+                    break;
+                case '4':
+                    $data = array_merge($data,$category_grandchildren);
+                    break;
+                case '5':
+                    $data += $oncle;
+                    break;
+                case '6':
+                    $data += $cousin;
+                    break;
+                case '7':
+                    $data += $neveux;
+                    break;
+            }
+        }
         $this->context->smarty->assign([
-            'childrens' => $category_children,
-            'parents' => $category_parent
+            'data' => $data
         ]);
-
         return $this->display(__FILE__, 'wsmeshseo.tpl');
     }
 
@@ -329,10 +381,6 @@ class wsmeshseo extends Module
             array(
                 'id_checkbox_options' => '7',
                 'checkbox_options_name' => 'Neveux',
-            ),
-            array(
-                'id_checkbox_options' => '8',
-                'checkbox_options_name' => 'Tous',
             )
         );
         return $options;

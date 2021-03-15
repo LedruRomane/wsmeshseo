@@ -60,7 +60,7 @@
 
                 {* Affichage du maillage *}
                 {if $maillageArray|@count > 0}
-                    {$parents|@var_dump}
+                    {$data|@var_dump}
                     <h2 class="maillage_header" id="maillage_{$mediaTypeCat.id_category}">
                         {if "maillage_"|cat:$mediaTypeCat.id_category}
                             {"maillage_"|cat:$mediaTypeCat.id_category}

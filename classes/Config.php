@@ -99,5 +99,4 @@ class Config extends ObjectModel
 
         return $results;
     }
-
 }

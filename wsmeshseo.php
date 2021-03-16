@@ -2,6 +2,7 @@
 
 require_once _PS_MODULE_DIR_.'wsmeshseo/classes/Config.php';
 require_once _PS_MODULE_DIR_.'wsmeshseo/services/CdcTools.php';
+require_once _PS_MODULE_DIR_.'wsmeshseo/services/WsArrayService.php';
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -41,7 +42,7 @@ class wsmeshseo extends Module
     }
 
     /***
-     * install module
+     * Install module/Hook/Database
      * @return bool
      */
     public function install()
@@ -58,7 +59,7 @@ class wsmeshseo extends Module
     }
 
     /***
-     * uninstall module
+     * Uninstall module/Database
      * @return bool
      */
     public function uninstall()
@@ -67,7 +68,7 @@ class wsmeshseo extends Module
     }
 
     /***
-     * install DataBase
+     * Install tables in database
      * @return bool
      */
     public function installDB()
@@ -86,7 +87,7 @@ class wsmeshseo extends Module
     }
 
     /***
-     * Uninstall DataBase
+     * Uninstall tables from database
      * @param bool $drop_table
      * @return bool
      */
@@ -101,26 +102,30 @@ class wsmeshseo extends Module
     }
 
     /***
-     * hook left column on product pages
+     * Custom hook on categories and product list pages
      * @param $params
      * @return mixed
      */
     public function hookDisplayHeaderCategory($params)
     {
         $data = array();
-        $category_grandparent = array();
         $category_grandchildren = array();
-
+        $category_parent = array();
         $category=  new Category(Tools::getValue('id_category'));
 
         //Récupération des enfants
         $category_children = $category->getChildren(Tools::getValue('id_category'),$this->context->language->id);
+        foreach ($category_children as $key => $value){
+            $cat = new Category($value['id_category']);
+            $value['level_depth'] = $cat->level_depth;
+            $category_children[$key] = $value;
+        }
 
         $category_grandparent = $category->getParentsCategories();
         //Supprimer la catégorie "Accueil" des catégories parentes et la catégorie courante.
         //Trier la catégorie parente directe et les catégories grands-parentes
         foreach($category_grandparent as $key => $value){
-            if($value['id_category'] == 2 || $value['id_category'] == $category->id ){
+            if($value['id_category'] == $category->id ){
                 unset($category_grandparent[$key]);
             }
             elseif($value['id_category'] == $category->id_parent){
@@ -145,11 +150,54 @@ class wsmeshseo extends Module
             if($value['id_category'] == '1' || $value['id_category'] == $category->id_parent){
                 unset($category_uncle[$key]);
             }
+            else{
+                $cat = new Category($value['id_category']);
+                $value['level_depth'] = $cat->level_depth;
+                $category_uncle[$key] = $value;
+            }
         }
 
-        $cousin=array();
-        $neveux=array();
+        //Récupération des cousins
+        $category_cousin = array();
+        foreach($category_uncle as $key => $value){
+            $uncle = new Category($value['id_category']);
+            $category_cousin = array_merge( $category_cousin, $uncle-> getChildren($value['id_category'],$this->context->language->id));
+        }
+        foreach ($category_cousin as $key => $value){
+            $cat = new Category($value['id_category']);
+            $value['level_depth'] = $cat->level_depth;
+            $category_cousin[$key] = $value;
+        }
 
+        //Récupération des neveux
+        $category_nephew = array();
+        foreach($category_cousin as $key => $value){
+            $cousin = new Category($value['id_category']);
+            $category_nephew = array_merge($category_nephew,$cousin->getChildren($value['id_category'],$this->context->language->id));
+        }
+        foreach ($category_nephew as $key => $value){
+            $cat = new Category($value['id_category']);
+            $value['level_depth'] = $cat->level_depth;
+            $category_nephew[$key] = $value;
+        }
+
+
+        //Récupération des frères
+        $category_brother = array();
+        foreach($category_parent as $key => $value){
+            $parent = new Category($value['id_category']);
+            $category_brother = array_merge($category_brother,$parent->getChildren($value['id_category'],$this->context->language->id));
+        }
+        foreach($category_brother as $key => $value){
+            if($value['id_category'] == $category->id) {
+                unset($category_brother[$key]);
+            }
+            else{
+                $cat = new Category($value['id_category']);
+                $value['level_depth'] = $cat->level_depth;
+                $category_brother[$key] = $value;
+            }
+        }
 
         //Récupération des configurations cochées
         $configChecked = explode(',', Config::get('options'));
@@ -160,25 +208,28 @@ class wsmeshseo extends Module
             switch ($value)
             {
                 case '1':
-                    $data = array_merge($data,$category_parent);
-                    break;
-                case '2':
                     $data = array_merge($data,$category_grandparent);
                     break;
+                case '2':
+                    $data = array_merge($data,$category_parent);
+                    break;
                 case '3':
-                    $data = array_merge($data,$category_children);
+                    $data = array_merge($data,$category_uncle);
                     break;
                 case '4':
-                    $data = array_merge($data,$category_grandchildren);
+                    $data = array_merge($data,$category_brother);
                     break;
                 case '5':
-                    $data +=  array_merge($data,$category_uncle);
+                    $data =  array_merge($data,$category_cousin);
                     break;
                 case '6':
-                    $data += $cousin;
+                    $data = array_merge($data,$category_children);
                     break;
                 case '7':
-                    $data += $neveux;
+                    $data = array_merge($data,$category_nephew);
+                    break;
+                case '8':
+                    $data = array_merge($data,$category_grandchildren);
                     break;
             }
         }
@@ -188,6 +239,10 @@ class wsmeshseo extends Module
         return $this->display(__FILE__, 'wsmeshseo.tpl');
     }
 
+    /***
+     * Load values from database into admin config page
+     * @return array
+     */
     protected function getConfigFormValues()
     {
 
@@ -239,12 +294,14 @@ class wsmeshseo extends Module
             $config_fields = array_merge($config_fields, $id_checkbox_options_config);
         }
 
-
         return $config_fields;
 
     }
 
-
+    /***
+     * Admin config page loader and controller
+     * @return string
+     */
     public function getContent()
     {
         $output = null;
@@ -289,6 +346,10 @@ class wsmeshseo extends Module
         return $output.$this->displayForm($this->getConfigFormValues());
     }
 
+    /***
+     * Admin config page form generator with helperForm
+     * @return mixed
+     */
     public function displayForm()
     {
 
@@ -336,6 +397,10 @@ class wsmeshseo extends Module
         return $helper->generateForm($fields_form);
     }
 
+    /***
+     * Install into tpl template of prestashop the custom hook
+     * @return bool
+     */
     public function installCustomHooks() {
         $success = true;
         if(version_compare(_PS_VERSION_, '1.7', '>=')) {
@@ -361,35 +426,43 @@ class wsmeshseo extends Module
         return $success;
     }
 
+    /***
+     * Options for the displayForm in the Admin Config page (checkboxes)
+     * @return string[][]
+     */
     public function  getOptions(){
         $options =array(
             array(
                 'id_checkbox_options' => '1',
-                'checkbox_options_name' => 'Parents',
-            ),
-            array(
-                'id_checkbox_options' => '2',
                 'checkbox_options_name' => 'Grand-parents',
             ),
             array(
+                'id_checkbox_options' => '2',
+                'checkbox_options_name' => 'Parents',
+            ),
+            array(
                 'id_checkbox_options' => '3',
-                'checkbox_options_name' => 'Enfants',
-            ),
-            array(
-                'id_checkbox_options' => '4',
-                'checkbox_options_name' => 'Petits-enfants',
-            ),
-            array(
-                'id_checkbox_options' => '5',
                 'checkbox_options_name' => 'Oncles',
             ),
             array(
-                'id_checkbox_options' => '6',
+                'id_checkbox_options' => '4',
+                'checkbox_options_name' => 'Frères',
+            ),
+            array(
+                'id_checkbox_options' => '5',
                 'checkbox_options_name' => 'Cousins',
+            ),
+            array(
+                'id_checkbox_options' => '6',
+                'checkbox_options_name' => 'Enfants',
             ),
             array(
                 'id_checkbox_options' => '7',
                 'checkbox_options_name' => 'Neveux',
+            ),
+            array(
+                'id_checkbox_options' => '8',
+                'checkbox_options_name' => 'Petits-enfants',
             )
         );
         return $options;

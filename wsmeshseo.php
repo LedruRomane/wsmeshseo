@@ -235,10 +235,15 @@ class wsmeshseo extends Module
         }
         $titles = array("2" => "Nos grandes catégories", "3" =>"Nos sous-catégories", "4" => "Nos catégories détaillées", "5" => "Nos sous-catégories détaillées");
 
+        $ifExist = array();
+        foreach ($data as $key => $value){
+            $ifExist[$value['level_depth']] = true;
+        }
 
         $this->context->smarty->assign([
             'data' => $data,
-            'title' => $titles
+            'title' => $titles,
+            'main' => $ifExist
         ]);
         return $this->display(__FILE__, 'wsmeshseo.tpl');
     }

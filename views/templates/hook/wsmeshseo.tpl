@@ -1,4 +1,5 @@
 
+
 {block name="in_wrapper_top"}
     {if isset($data)}
         <div id="category-seo" class="container">
@@ -10,30 +11,34 @@
         {assign var='mediaTypeCatFull' value=Category::getInstance($mediaTypeCat.id_category)}
 
         {* Affichage du maillage *}
-        {if $data|@count > 0}
+        {if $data|@count > 1 || $data[0]['id_category']!= '2'}
             <h2 class="maillage_header" id="maillage_{$mediaTypeCat.id_category}">
                 {$mediaTypeCat.name}
             </h2>
             <div id="accordion">
             {foreach from=$title item=label key=level}
-                <div class="card">
-                    <div class="card-header" id="heading{$level}">
-                        <h5 class="mb-0">
-                            <button class="btn btn-link" data-toggle="collapse" data-target="#collapse{$level}" aria-expanded="true" aria-controls="collapse{$level}">
-                                {$label}
-                            </button>
-                        </h5>
-                    </div>
-                    <div id="collapse{$level}" class="collapse show" aria-labelledby="heading{$level}" data-parent="#accordion">
-                        {foreach from=$data item=categorie key=key}
-                            {if $categorie.level_depth == $level}
-                                <a class="card-body" href="{$link->getCategoryLink({$categorie.id_category})}">
-                                    {$categorie.name}
-                                </a>
-                            {/if}
-                        {/foreach}
-                    </div>
-                </div>
+                {foreach from=$main item=state key=exist}
+                    {if $level == $exist}
+                        <div class="card">
+                            <div class="card-header" id="heading{$level}">
+                                <h5 class="mb-0">
+                                    <button class="btn btn-link" data-toggle="collapse" data-target="#collapse{$level}" aria-expanded="true" aria-controls="collapse{$level}">
+                                        {$label}
+                                    </button>
+                                </h5>
+                            </div>
+                            <div id="collapse{$level}" class="collapse show" aria-labelledby="heading{$level}" data-parent="#accordion" >
+                                {foreach from=$data item=categorie key=key}
+                                    {if $categorie.level_depth == $level}
+                                        <a class="card-body" href="{$link->getCategoryLink({$categorie.id_category})}">
+                                            {$categorie.name}
+                                        </a>
+                                    {/if}
+                                {/foreach}
+                            </div>
+                        </div>
+                    {/if}
+                {/foreach}
             {/foreach}
         {/if}
         </div>
@@ -64,7 +69,7 @@
             "maillage_46": "{/literal}{l s="maillage_46"}{literal}",
             "maillage_46_1": "{/literal}{l s="maillage_46_1"}{literal}",
             "maillage_46_2": "{/literal}{l s="maillage_46_2"}{literal}",
-        }
+            }
     </script>
     {/literal}
 {/block}

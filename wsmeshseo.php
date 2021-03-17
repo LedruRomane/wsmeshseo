@@ -233,8 +233,12 @@ class wsmeshseo extends Module
                     break;
             }
         }
+        $titles = array("2" => "Nos grandes catégories", "3" =>"Nos sous-catégories", "4" => "Nos catégories détaillées", "5" => "Nos sous-catégories détaillées");
+
+
         $this->context->smarty->assign([
-            'data' => $data
+            'data' => $data,
+            'title' => $titles
         ]);
         return $this->display(__FILE__, 'wsmeshseo.tpl');
     }

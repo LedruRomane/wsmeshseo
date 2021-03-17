@@ -1,44 +1,43 @@
 
 {block name="in_wrapper_top"}
-{if isset($category)}
+    {if isset($data)}
         <div id="category-seo" class="container">
 
-                {assign var='currentCat' value=Category::getInstance($category.id)}
-                {assign var='parentsCat' value=$currentCat->getParentsCategories($language.id)}
-                {* Récupération du type de média de la catégorie courante *}
-                {assign var='maillageArray' value=[]}
-                {assign var='mediaTypeCat' value=$parentsCat[$parentsCat|@count - 2]}
-                {assign var='mediaTypeCatFull' value=Category::getInstance($mediaTypeCat.id_category)}
+        {assign var='currentCat' value=Category::getInstance($category.id)}
+        {assign var='parentsCat' value=$currentCat->getParentsCategories($language.id)}
+        {* Récupération du type de média de la catégorie courante *}
+        {assign var='maillageArray' value=[]}{assign var='mediaTypeCat' value=$parentsCat[$parentsCat|@count - 2]}
+        {assign var='mediaTypeCatFull' value=Category::getInstance($mediaTypeCat.id_category)}
 
-                {* Affichage du maillage *}
-                {if $data|@count > 0}
-                    {$data|@var_dump}
-                    <h2 class="maillage_header" id="maillage_{$mediaTypeCat.id_category}">
-                        {$mediaTypeCat.name}
-                    </h2>
-                    <div id="category-accordion">
-                        <div class="category-accordion-headers">
-                            {foreach from=$data item=category key=key name="maillageheader"}
-                                <a id="maillage_{$mediaTypeCat.id_category}_{$typeCategory@iteration+1}" class="category-accordion-header {if !$smarty.foreach.maillageheader.first} collapsed {/if}" data-toggle="collapse" href="#cat{$depth}">
-                                    {assign var="toTranslate" value="maillage_{$mediaTypeCat.id_category}_{$typeCategory@iteration+1}"}
-                                        {l s="Catégorie"}
+        {* Affichage du maillage *}
+        {if $data|@count > 0}
+            <h2 class="maillage_header" id="maillage_{$mediaTypeCat.id_category}">
+                {$mediaTypeCat.name}
+            </h2>
+            <div id="accordion">
+            {foreach from=$title item=label key=level}
+                <div class="card">
+                    <div class="card-header" id="heading{$level}">
+                        <h5 class="mb-0">
+                            <button class="btn btn-link" data-toggle="collapse" data-target="#collapse{$level}" aria-expanded="true" aria-controls="collapse{$level}">
+                                {$label}
+                            </button>
+                        </h5>
+                    </div>
+                    <div id="collapse{$level}" class="collapse show" aria-labelledby="heading{$level}" data-parent="#accordion">
+                        {foreach from=$data item=categorie key=key}
+                            {if $categorie.level_depth == $level}
+                                <a class="card-body" href="{$link->getCategoryLink({$categorie.id_category})}">
+                                    {$categorie.name}
                                 </a>
-                            {/foreach}
-                        </div>
-
-                        {foreach from=$maillageArray item=typeCategory key=depth name="maillagelink"}
-                            <div id="cat{$depth}" class="collapse {if $smarty.foreach.maillagelink.first} show {/if}" data-parent="#category-accordion">
-                                {foreach from=$typeCategory item=category key=index}
-                                    <a class="category-accordion-link" href="{$link->getCategoryLink({$category.id_category})}">
-                                        {$category.name}
-                                    </a>
-                                {/foreach}
-                            </div>
+                            {/if}
                         {/foreach}
                     </div>
-                {/if}
-            {/if}
+                </div>
+            {/foreach}
+        {/if}
         </div>
+    {/if}
 
     {literal}
     <script>
